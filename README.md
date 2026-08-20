@@ -1,46 +1,75 @@
-# Safe Meta-Reinforcement Learning via Dual-Method-Based Policy Adaptation
+# Constrained Meta Reinforcement Learning with Provable Test-Time Safety
 
-Reference implementation of **safe meta-RL with near-optimality and anytime safety
-guarantees**, together with the baselines it is compared against.
+Code for the paper **"Constrained Meta Reinforcement Learning with Provable Test-Time
+Safety"** — Tingting Ni, Maryam Kamgarpour (Sycamore Lab, EPFL), ICML 2026.
+A copy of the paper is included: [`Constrained Meta Reinforcement Learning with Provable Test-Time Safety.pdf`](Constrained%20Meta%20Reinforcement%20Learning%20with%20Provable%20Test-Time%20Safety.pdf).
 
-The setting is a family of **constrained MDPs** (CMDPs) that share dynamics but differ
-in their task parameter. On MuJoCo Hopper the task is a goal velocity drawn from a
-truncated Gaussian; the agent must maximise reward while keeping the discounted safety
-cost below a threshold — **at every point during adaptation**, not just at convergence.
+> **Scope of this repository.** This code implements the **Gym locomotion experiments of
+> Appendix H.2** (Hopper and Half-Cheetah, paper Figure 4). The gridworld experiments of
+> Section 6 (Figures 1 and 2) are **not** in this repository — see
+> [Coverage](#coverage-what-is-and-is-not-here) below.
 
-Our method has two phases, both in [`algos/our_algorithm.py`](algos/our_algorithm.py):
+## The problem
 
-| Phase | What happens |
+We are given a family of constrained MDPs `M_all = {M_i}`, sharing state and action
+spaces but differing in their task parameter. Learning has two phases:
+
+- a **training phase** in simulation, where constraint violations are allowed and tasks
+  can be sampled freely from the task distribution `D`;
+- a **testing phase** in the real world, on an unknown test task `M_test ~ D`, where
+  every deployed policy must be feasible — **safe exploration** (Definition 2.2).
+
+The objective is to minimise the test-time reward regret (Eq. 1) while never violating
+the constraint during adaptation.
+
+## The algorithm
+
+| Paper | Implementation |
 |---|---|
-| **Task cover set** | Greedy set cover over sampled tasks: tasks within `epsilon` of each other are treated as solvable by the same policy, so a handful of experts covers the whole distribution. |
-| **Safe test-time adaptation** | On a new task, mix a high-reward candidate `π_l` into the safe meta-policy `π_s` — `π_{l,m} = α·π_l + (1−α)·π_s` — raising `α` only as fast as confidence bounds allow the constraint to stay satisfied. |
+| **Algorithm 1** — training phase: build the CMDP set `U`, learn a near-optimal policy per element, and one policy `π_s` feasible for all of them; return the policy–value set `Û` (Eq. 2) | `algos/our_algorithm.py::build_cover_set` (+ Subroutine 3), then `main.py cover-set`, `cpo-experts`, `eval-cover-set` |
+| **Subroutine 3 / Algorithm 3** — greedy CMDP cover | `algos/our_algorithm.py::policy_cover_subroutine` |
+| **Algorithm 2** — testing phase with safe exploration | `algos/our_algorithm.py::test_time_adaptation` |
+| **Eq. 6** — mixture-weight update `α_{l,m}` | `algos/our_algorithm.py::update_mixture_weight` |
 
-Because `α` starts at 0 (pure `π_s`, known safe) and only grows when the observed
-reward and cost stay inside their confidence intervals, the mixture is safe *anytime*.
-Candidates whose predicted values fail the test are discarded and the next-best one is
-tried. The safe meta-policy `π_s` itself is trained by
-[`algos/SafeMeta.py`](algos/SafeMeta.py).
+At test time the algorithm deploys the **mixture policy**
+
+```
+π_{l,m} = α_{l,m} · π_l  +  (1 − α_{l,m}) · π_s
+```
+
+where `π_l` is the current candidate from `Û` (chosen optimistically, highest predicted
+reward `u_l`) and `π_s` is the feasible policy from training. Per Definition 2.3, the
+mixture is realised by sampling *one* index per episode and running that policy for the
+whole episode — not by mixing actions within an episode.
+
+`α_{l,0} = 0`, i.e. deployment starts at the known-feasible `π_s`, and `α` is raised only
+when enough samples have accumulated (Alg. 2 line 11). If the empirical reward or cost
+leaves the confidence interval of Inequality (5), the candidate's stored values were
+wrong: it is discarded from `Û`, `α` resets to 0, and the next-best candidate is tried.
+This is what makes exploration safe at *every* iteration rather than only in the limit.
 
 ---
 
-## Everything runs through `main.py`
+## Coverage: what is and is not here
 
-```
-$ python main.py
-usage: python main.py <subcommand> [options]
+| Paper experiment | Figure | In this repo |
+|---|---|---|
+| 7×7 gridworld, vs Safe Meta-RL / DOPE+ / LB-SGD | Fig. 1, 2 | **No** — not implemented |
+| Gym Hopper, vs MAML+constraint / meta-CPO / SafeMeta / CPO | Fig. 4(b) | **Yes** — `assets/plots/Hopper.png` |
+| Gym Half-Cheetah, same four baselines | Fig. 4(a) | Partly — env supported, figure not committed |
 
-subcommands:
-  train           meta-train / meta-test one of the four algorithms
-  cover-set       build the task cover set, then meta-train on it
-  cpo-experts     train one CPO expert per cover-set task
-  eval-cover-set  score those experts -> the U_hat for `adapt`
-  adapt           our algorithm: safe test-time adaptation
-  baseline        shared pre-adaptation reference point
-  eval-random     held-out evaluation on freshly sampled tasks
-  compare         baseline -> all algorithms -> comparison plot
-```
+The four Appendix H.2 baselines map onto the code as:
 
-`python main.py <subcommand> --help` lists that stage's flags.
+| Paper (Appendix H.2) | `--algo-name` |
+|---|---|
+| (a) MAML (Finn et al., 2017) with a constraint penalty | `MAML_constraint` |
+| (b) meta-CPO (Cho & Sun, 2024) | `CPOMeta` |
+| (c) SafeMeta (Xu & Zhu, 2026) | `SafeMeta` |
+| (d) CPO (Achiam et al., 2017) | `CPO` |
+| **Our algorithm** | `main.py adapt` |
+
+`SafeMeta` doubles as both a baseline and the source of the feasible policy `π_s`
+that Algorithm 2 starts from.
 
 ---
 
@@ -50,17 +79,17 @@ subcommands:
 .
 ├── main.py                       # THE entry point -- every stage is a subcommand
 │
-├── algos/                        # The learning algorithms
-│   ├── our_algorithm.py          #   ← OUR METHOD: cover set + safe test-time adaptation
-│   ├── SafeMeta.py               #   trains the safe meta-policy pi_s (dual-method inner step)
-│   ├── MAML_constraint.py        #   baseline: MAML + constraint on the inner step
-│   ├── CPOMeta.py                #   baseline: per-task CPO step + projected meta step
-│   ├── CPO.py                    #   baseline: single-task Constrained Policy Optimisation
+├── algos/
+│   ├── our_algorithm.py          #   ← OURS: Alg. 1 cover set + Alg. 2 test-time adaptation
+│   ├── SafeMeta.py               #   baseline (c); also trains the feasible policy pi_s
+│   ├── MAML_constraint.py        #   baseline (a)
+│   ├── CPOMeta.py                #   baseline (b)
+│   ├── CPO.py                    #   baseline (d)
 │   └── trpo.py                   #   shared trust-region machinery (CG, line search)
 │
 ├── core/
 │   ├── agent.py                  # rollout collection + per-worker log merging
-│   └── common.py                 # GAE advantages, discounted constraint value J_C(π)
+│   └── common.py                 # GAE advantages, constraint value V_c(π)
 │
 ├── models/
 │   ├── continuous_policy.py      # Gaussian policy, learnable state-independent log-std
@@ -79,16 +108,27 @@ subcommands:
 │
 ├── scripts/                      # multi-seed launchers + plotting (see scripts/README.md)
 └── assets/
-    ├── cover_set.json            # the task cover set (Hopper goal velocities)
-    ├── learned_models/<algo>/<run>/  # checkpoints, training_log.csv, test_log2.csv, tensorboard
-    └── plots/                    # figures and evaluation JSONs
+    ├── learned_models/<algo>/<run>/   # checkpoints, training_log.csv, test_log2.csv
+    └── plots/                    # figures (PNG tracked; result JSONs are generated)
 ```
 
-> **Where the problem is actually defined.** `utils/tools.py::compute_task_reward_cost`
-> is the single place the reward and the safety cost of each environment are specified.
-> Change it there and all five algorithms see the change.
-> `utils/tools.py::sample_truncated_gaussian` is the Hopper task distribution —
-> `N(0.5, 0.01)` truncated to `[0, 1]`.
+> **Where the CMDP is defined.** `utils/tools.py::compute_task_reward_cost` is the single
+> place each environment's reward `r` and constraint cost `c` are specified. It is the
+> implementation of the paper's task definitions in Appendix H.2 — see
+> [Known deviations](#known-deviations-from-the-paper).
+
+---
+
+## Environments (Appendix H.2)
+
+| | Hopper | Half-Cheetah |
+|---|---|---|
+| State / action dim | 12 / 3 | 17 / 6 |
+| Reward | −\|velocity − target\| | −\|velocity − target\| |
+| Task distribution | truncated on [0, 1], mean 0.5 | truncated on [0, 2], mean 1 |
+| Cost | control effort | head height `h − h_0 ≤ d_τ` |
+| Constraint threshold | 5 | 10 |
+| Test tasks | 20 | 20 |
 
 ---
 
@@ -102,93 +142,77 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
----
-
 ## Usage
 
-### Meta-training a single algorithm
+Everything is a subcommand of `main.py`; run it bare for the list.
 
-```bash
-python main.py train --algo-name SafeMeta --env-name Hopper --is-meta-test False
+```
+$ python main.py
+subcommands:
+  train           meta-train / meta-test one of the four baselines
+  cover-set       build the CMDP cover set U, then train the feasible policy pi_s
+  cpo-experts     learn a near-optimal policy per cover-set task (oracle O_l)
+  eval-cover-set  assemble the policy-value set U_hat of Eq. 2
+  adapt           our algorithm: Algorithm 2, test-time adaptation
+  baseline        shared pre-adaptation reference point
+  eval-random     held-out evaluation on freshly sampled test tasks
+  compare         baseline -> all baselines -> comparison plot
 ```
 
-`--algo-name` accepts `SafeMeta`, `MAML_constraint`, `CPOMeta`, `CPO`.
-`--env-name` accepts `Hopper`, `HalfCheetah`, `Swimmer`, `Humanoid`.
+### Reproducing Figure 4(b) (Hopper)
 
-Results land in `assets/learned_models/<algo>/<date>-exp-<algo>-<env>/` containing
-`model.p` (best), `model_last.p`, `training_log.csv`, `test_log2.csv`, and TensorBoard
-events under `runs/`.
-
-Flags worth knowing (`python main.py train --help` for the rest):
-
-| Flag | Meaning |
-|---|---|
-| `--is-meta-test` | `False` = meta-train from scratch, `True` = adapt the checkpoint at `--model-path` |
-| `--max-constraint` | cost threshold (Hopper/Swimmer `5`, HalfCheetah `10`, Humanoid `20`) |
-| `--env-num` | tasks sampled per meta-iteration |
-| `--meta-iter-num` | inner adaptation steps per task |
-| `--max-iter-num` | outer (meta) iterations |
-| `--meta-lambda` | Lagrange weight on the cost — `SafeMeta` / `MAML_constraint` only |
-| `--max-kl`, `--damping` | trust-region size — algorithm-specific defaults |
-| `--use-cover-set-tasks` | train on the fixed `assets/cover_set.json` tasks instead of sampling |
-
-Some flags exist only for certain algorithms, so `--help` shows a different set
-depending on `--algo-name`, and passing another algorithm's flag is an error rather
-than a silent no-op.
-
-### The full pipeline for our method
-
-Run these in order — each stage consumes the previous stage's output:
+**Training phase — Algorithm 1:**
 
 ```bash
-# 1. build the task cover set -> assets/cover_set.json, then meta-train on it
+# Build the CMDP cover set U (Subroutine 3), then train the feasible policy pi_s
 python main.py cover-set
 
-# 2. train one CPO expert per cover-set task
-#    -> assets/learned_models/CPO_cover_set/velocity_*/
+# Oracle O_l: a near-optimal policy for each M in U
 python main.py cpo-experts
 
-# 3. score experts + meta-policy on each task -> assets/plots/cover_set_eval.json
+# Assemble U_hat = {(pi, V_r(pi), V_c(pi), V_r(pi_s), V_c(pi_s))} of Eq. 2
 python main.py eval-cover-set
+```
 
-# 4. our algorithm: safe test-time adaptation
+**Testing phase — Algorithm 2:**
+
+```bash
 python main.py adapt --seed 0 --save-path assets/plots/safe_pce_eval.json
 ```
 
-Step 3 produces the `Û` set consumed by step 4: for each cover-set task it records the
-reward/cost of the CPO expert (`u_l`, `v_l`) and of the safe meta-policy (`u_l_s`,
-`v_l_s`), which is exactly what the confidence-bound test needs. Stages 1–3 discover
-the most recent relevant checkpoint automatically; pass `--safemeta-model-path` to pin
-a specific one.
-
-The shipped `assets/cover_set.json` holds two Hopper velocities, `≈0.504` and `≈0.304`.
-`python main.py cover-set --skip-training` rebuilds it without training, and reproduces
-those exact values (the construction is seeded).
-
-### Baseline comparison
-
-Adapts one shared checkpoint with each algorithm and plots them against a common
-pre-adaptation baseline:
+**The four baselines, and the figure:**
 
 ```bash
-python main.py compare --env-name Hopper
+./scripts/run_10_seeds.sh          # meta-train the baselines
+python main.py compare             # adapt each from the shared pi_s, then plot
 ```
 
-### Held-out evaluation
+`assets/plots/Hopper.png` is the committed result. `--max-constraint 5` for Hopper,
+`10` for Half-Cheetah (`--env-name HalfCheetah`), matching Figure 4.
+
+### Flags worth knowing
+
+`python main.py train --help` for the rest. The flag set varies with `--algo-name`, so
+passing another algorithm's flag is an error rather than a silent no-op.
+
+| Flag | Paper symbol / meaning |
+|---|---|
+| `--max-constraint` | constraint threshold on `V_c` |
+| `--env-num` | tasks sampled per meta-iteration (test task list is 2×) |
+| `--meta-iter-num` | inner adaptation steps per task |
+| `--max-iter-num` | outer (meta) iterations |
+| `--gamma` | discount `γ` |
+| `--meta-lambda` | Lagrange weight on the cost — `SafeMeta` / `MAML_constraint` only |
+| `--max-kl`, `--damping` | trust-region size |
+| `--cover-delta` | confidence `δ` for the cover-set construction |
+| `--epsilon`, `--delta`, `--k`, `--h` | `ε`, `δ`, `K`, `H` of Algorithm 2 (`main.py adapt`) |
+
+### Multi-seed runs
 
 ```bash
-python main.py eval-random --model-path assets/learned_models/SafeMeta/<run>
-```
-
-Reports averaged reward/cost over freshly sampled tasks plus how many exceeded the
-threshold — the constraint-violation rate on unseen tasks.
-
-### Multi-seed runs and figures
-
-```bash
-./scripts/run_10_seeds.sh                    # meta-train 4 algorithms × 10 seeds
+./scripts/run_10_seeds.sh                    # baselines × 10 seeds
 ./scripts/run_safe_pce_20_seeds.sh           # `main.py adapt` × 20 seeds
-python scripts/plot_safe_pce_seeds.py        # mean / p10-p90 reward & cost bands
+python scripts/plot_safe_pce_seeds.py        # mean / p10-p90 bands
 python scripts/plot_seeded_rewards.py        # mean ± std training curves
 ```
 
@@ -196,50 +220,93 @@ See [`scripts/README.md`](scripts/README.md).
 
 ---
 
-## Reproducing the figures
+## Generated data
 
-`assets/plots/` holds the committed results:
+`assets/plots/*.png` and the `*.csv` metric logs are tracked. **All result JSONs are
+generated, not committed** — `cover_set.json`, `cover_set_eval.json`,
+`safe_pce_eval*.json`, `shared_baseline.json` are produced by the stages above and are
+gitignored. Model checkpoints (`*.p`) are likewise not committed.
 
-- `safe_pce_reward_cost_20_seeds_p10_p90.png` — reward and cost during test-time
-  adaptation over 20 seeds. Cost stays under the threshold throughout, which is the
-  anytime-safety claim.
-- `Hopper.png` — meta-training comparison of the four algorithms.
-- `safe_pce_eval_seed*.json`, `cover_set_eval.json`, `shared_baseline.json` — the raw
-  numbers behind those plots.
+The cover-set construction is seeded (`COVER_SEED = 1`), so `python main.py cover-set
+--skip-training` regenerates `assets/cover_set.json` deterministically.
 
-Trained checkpoints (`*.p`) are **not** committed; rerun the commands above to
-regenerate them. The metric logs and figures are committed, so the plots can be
-reproduced without retraining.
+---
+
+## Known deviations from the paper
+
+The implementation is faithful to Algorithm 1 and to the structure of Algorithm 2, but
+several constants in Algorithm 2 are hand-tuned rather than computed from the paper's
+formulas. These are recorded here rather than silently changed, because changing them
+would alter the committed results.
+
+**Faithful:**
+
+- Subroutine 3 / Algorithm 3 — greedy cover, selection rule and the `|T_t| ≤ 3δN`
+  stopping condition match exactly.
+- Algorithm 1's doubling test `sqrt(|U| ln(2N/δ) / (N − |U|)) ≤ δ` matches exactly.
+- `Û` has exactly the five fields of Eq. 2.
+- Optimistic candidate selection by `argmax u_l` (Alg. 2 line 3).
+- The mixture is sampled once per episode, per Definition 2.3.
+- Predicted mixture values `u_{l,m}`, `v_{l,m}` follow Eq. 3.
+- Constraint thresholds (Hopper 5, Half-Cheetah 10) and 20 test tasks match Figure 4.
+
+**Deviating:**
+
+| # | Paper | Code | Where |
+|---|---|---|---|
+| 1 | `R_k = Σ_t γ^t r(s_t,a_t)` (Eq. 4) — reward **discounted** | reward accumulated **undiscounted**; cost is discounted | `test_time_adaptation` |
+| 2 | Inq. 5: one bound `sqrt(2ln(4K/δ) / ((k−k_0+1)(1−γ)²)) + ε(L+1)` for reward and cost | two hand-tuned bounds, `sqrt(60000/n) + 280ε` and `sqrt(600/n) + 10ε`; `δ` therefore unused | `test_time_adaptation` |
+| 3 | Alg. 2 line 7: eliminate as soon as Inq. 5 is violated | additionally requires `n > 300` | `test_time_adaptation` |
+| 4 | Alg. 2 line 11: `k − k_0 − 1 ≥ 32ln(4K/δ) / ((1−γ)² v_{l,s}²)`, and `m ≤ m(l) = log_{C_l} ε` | `min(max(100/denom, 650), 350)`, which is **always 350**; `m < 15` hardcoded; uses `(v_{l,m} − threshold)²` instead of `v_{l,s}²` | `test_time_adaptation` |
+| 5 | Eq. 6, `m=0`: `(v_{l,s} − 2ε(L+2)) / (v_{l,s} − 2ε(L+2) + 2/(1−γ))` | `v / (v + 2)` — drops `2ε(L+2)`, uses `2` for `2/(1−γ)` | `update_mixture_weight` |
+| 6 | Eq. 6, `m≥1`: geometric ratchet in `C_l^m`, `C_l = 2/3 + (4L+9)/(3v_{l,s})` | `3α / (2 + α)` | `update_mixture_weight` |
+| 7 | `L = (1−γ)^{-1} + 2γ(1−γ)^{-2}` | never computed | `algos/our_algorithm.py` |
+| 8 | Alg. 2 line 16: return `π_out = (1/K) Σ_k π_k` | returns the surviving candidate, or `π_s` | `test_time_adaptation` |
+| 9 | Alg. 1 line 1: `N = ln²(δ)/δ²` | `ln(1/δ)/δ²` — smaller by a factor of `ln(1/δ)` | `build_cover_set` |
+| 10 | Hopper reward `−\|v − target\|` | adds MuJoCo's alive bonus and control cost | `compute_task_reward_cost` |
+| 11 | Half-Cheetah cost is the head-height constraint `h − h_0 ≤ d_τ` | uses control effort (`−reward_ctrl`); head height is never read | `compute_task_reward_cost` |
+| 12 | Half-Cheetah tasks truncated Gaussian, mean 1, on [0, 2] | sampled **uniformly** on [0, 2] | `create_sigle_envs` |
+| 13 | Hopper task distribution has **variance 0.1** | `HOPPER_TASK_VARIANCE = 0.01` (i.e. std 0.1); `main.py eval-random` defaults to variance 0.1, so the two disagree | `utils/tools.py` |
+
+Items 10–13 mean the Hopper/Half-Cheetah CMDPs realised in code differ from their
+Appendix H.2 definitions; items 1–9 mean Algorithm 2's constants are empirical rather
+than the theoretically derived ones. Neither affects the qualitative claim in Figure 4
+(our algorithm is the only method that both improves reward and stays under the
+threshold), but both matter for anyone checking the theory against the code.
 
 ---
 
 ## Notes for readers of the code
 
 - **Sampling is seeded deterministically.** `utils/tools.py::deterministic_rollout_seed`
-  derives a per-(task, meta-iteration) seed so that evaluation rollouts are comparable
-  across algorithms and seeds.
-- **The state normaliser is frozen at evaluation time** (`ZFilter.fix = True`), so test
-  rollouts do not shift the running statistics.
+  derives a per-(task, meta-iteration) seed so runs are comparable across algorithms.
+- **The state normaliser is frozen at evaluation time** (`ZFilter.fix = True`).
 - **Reward and cost use separate critics** — two instances of `models/critic.py::Value`.
-- **Cost is scaled ×100 for Hopper and Swimmer** inside `compute_task_reward_cost`, so
-  logged cost values are already on the same scale as `--max-constraint`.
+- **Cost is scaled ×100 for Hopper** inside `compute_task_reward_cost`, so logged values
+  are on the same scale as `--max-constraint`.
 - **Stages shell out to `main.py train`** rather than importing it, so each training run
   gets a clean process and its own checkpoint directory.
 
-### Known rough edges
+## Citation
 
-These are in the numerics and are deliberately left as-is rather than silently
-"fixed" — flagging them so a reader is not misled:
+```bibtex
+@inproceedings{ni2026constrained,
+  title     = {Constrained Meta Reinforcement Learning with Provable Test-Time Safety},
+  author    = {Ni, Tingting and Kamgarpour, Maryam},
+  booktitle = {Proceedings of the 43rd International Conference on Machine Learning},
+  series    = {PMLR},
+  volume    = {306},
+  year      = {2026}
+}
+```
 
-- In `test_time_adaptation`, the confidence-bound constants are tuned for Hopper rather
-  than derived from `delta`: `thresh = sqrt(60000/n) + epsilon*280` and
-  `thresh_c = sqrt(600/n) + epsilon*10`. The `delta` argument is consequently unused.
-- Also in `test_time_adaptation`: `min_samples = min(max(100/denom, 650), 350)` always
-  evaluates to `350`, since `max(..., 650) >= 650 > 350`. It was probably meant to read
-  `min(max(100/denom, 350), 650)`.
+Supported by the Swiss National Science Foundation under Grant 207984.
 
 ## Licence and attribution
 
-MIT — see [`LICENSE`](LICENSE). The CPO implementation and the surrounding
-`core/` / `models/` / `utils/` scaffolding derive from Sapana Chaudhary's safe meta-RL
-codebase, whose copyright notice is retained in `LICENSE`.
+MIT — see [`LICENSE`](LICENSE). Per Appendix H.2 the Gym experiments build on the
+implementation of **Xu & Zhu (2026)**, *Efficient safe meta-reinforcement learning:
+provable near-optimality and anytime safety* (NeurIPS 2026) — the `SafeMeta` baseline.
+The CPO implementation and the `core/` / `models/` / `utils/` scaffolding derive from
+Sapana Chaudhary's safe meta-RL codebase, whose copyright notice is retained in
+`LICENSE`.

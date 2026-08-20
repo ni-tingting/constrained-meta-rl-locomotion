@@ -16,12 +16,14 @@ env/
 .idea/
 .claude/
 
-# Trained model checkpoints (pickles) -- regenerate with main.py / run_cpo_cover_set.py.
-# Metric logs (*.csv, *.json) and figures (*.png) under assets/ ARE tracked.
+# Generated data under assets/. Everything here is reproducible by rerunning
+# the `main.py` stages; only the CSV metric logs and the PNG figures are tracked.
 assets/**/*.p
+assets/**/*.json
+assets/*.json
 assets/**/intermediate_model/
 
-# Scratch single-task cover-set files written by run_cpo_cover_set.py
+# Scratch single-task cover-set files written by `main.py cpo-experts`
 assets/**/tmp_cover_sets/
 
 # TensorBoard event files
