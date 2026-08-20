@@ -8,7 +8,6 @@ policy while keeping the constraint satisfied.
 """
 
 from torch.optim import LBFGS
-import cvxpy as cp
 import numpy as np
 import multiprocessing
 import math
@@ -19,7 +18,6 @@ import os
 from utils.tools import *
 from utils.torch import *
 from utils.replay_memory import Memory
-from utils.argument_parsing import parse_all_arguments
 from utils.replay_memory import Memory
 from core.common import estimate_advantages, estimate_constraint_value
 
@@ -28,7 +26,6 @@ from algos.trpo import *
 
 
 #summarizing using tensorboard
-from torch.utils.tensorboard import SummaryWriter
 
 def collect_trajectory(pid, queue, env, env_parameter, env_name, policy, 
                        mean_action, running_state, min_batch_size, horizon, seed):

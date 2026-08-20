@@ -8,11 +8,8 @@ threads. Used by the generic (non task-conditioned) code paths; the meta
 algorithms in ``algos/`` carry their own task-conditioned samplers.
 """
 
-import multiprocessing
 from utils.replay_memory import Memory
 from utils.torch import *
-import math
-import time
 
 class bcolors:
     MAGENTA = '\033[95m'

@@ -7,7 +7,6 @@ value / cost nets, the running state normaliser, and the pickled metric lists.
 """
 
 import os
-import numpy as np
 import pickle
 import errno
 

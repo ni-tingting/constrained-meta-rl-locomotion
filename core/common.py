@@ -4,7 +4,6 @@ Advantage and constraint-value estimation shared by all four algorithms.
 
 import torch
 from utils import to_device
-import numpy as np
 
 def estimate_advantages(rewards, masks, values, gamma, tau, device):
     """

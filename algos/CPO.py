@@ -7,7 +7,6 @@ restricted by the discounted cost constraint, solved as a small convex program
 """
 
 import numpy as np
-import scipy.optimize
 import cvxpy as cp
 from cvxpylayers.torch import CvxpyLayer
 import multiprocessing

@@ -6,7 +6,6 @@ task update. Serves as the ablation against ``SafeMeta``'s dual-method step.
 """
 
 from torch.optim import LBFGS
-import cvxpy as cp
 import numpy as np
 import multiprocessing
 import math
@@ -17,16 +16,14 @@ import os
 from utils.tools import *
 from utils.torch import *
 from utils.replay_memory import Memory
-from utils.argument_parsing import parse_all_arguments
 from utils.replay_memory import Memory
 from core.common import estimate_advantages, estimate_constraint_value
 
 import copy
-from algos.trpo import one_step_trpo,conjugate_gradients,trpo_step
+from algos.trpo import trpo_step
 
 
 #summarizing using tensorboard
-from torch.utils.tensorboard import SummaryWriter
 
 def collect_trajectory(pid, queue, env, env_parameter, env_name, policy, 
                        mean_action, running_state, min_batch_size, horizon, seed):
