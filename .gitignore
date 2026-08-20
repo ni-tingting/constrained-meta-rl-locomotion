@@ -16,17 +16,17 @@ env/
 .idea/
 .claude/
 
-# Generated data under assets/. Everything here is reproducible by rerunning
-# the `main.py` stages; only the PNG figures are tracked.
-assets/**/*.p
-assets/**/*.json
+# Generated data under assets/. `assets/plots/*.png` is the ONLY tracked asset --
+# everything else is reproducible by rerunning the `main.py` stages.
+#
+# Whole training tree: checkpoints, metric logs, intermediate models, TensorBoard.
+assets/learned_models/
+
+# Result data written alongside the figures.
 assets/*.json
-assets/**/*.csv
-assets/**/intermediate_model/
+assets/plots/*.json
+assets/plots/*.csv
 
-# Scratch single-task cover-set files written by `main.py cpo-experts`
-assets/**/tmp_cover_sets/
-
-# TensorBoard event files
-assets/**/runs/
+# Safety net in case a checkpoint or event file is written outside the tree above.
+assets/**/*.p
 events.out.tfevents.*

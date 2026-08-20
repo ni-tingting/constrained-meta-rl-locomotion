@@ -104,9 +104,9 @@ that Algorithm 2 starts from.
 │   └── math.py                   # Gaussian log-density / entropy
 │
 ├── scripts/                      # plotting only -- four figure scripts
-└── assets/                       # all generated except the PNGs -- see Generated data
-    ├── learned_models/<algo>/<run>/   # checkpoints + metric logs, per run
-    └── plots/                    # figures (committed) and result JSONs (generated)
+└── assets/
+    ├── learned_models/<algo>/<run>/   # generated, untracked: checkpoints + metric logs
+    └── plots/                    # the committed figures (result JSONs are generated)
 ```
 
 > **Where the CMDP is defined.** `utils/tools.py::compute_task_reward_cost` is the single
@@ -252,8 +252,9 @@ python scripts/plot_seeded_rewards.py --algorithms SafeMeta MAML_constraint CPOM
 
 ## Generated data
 
-**Only the figures (`assets/plots/*.png`) are committed.** Everything else under
-`assets/` is produced by the stages above and gitignored:
+**`assets/plots/*.png` is the only tracked asset.** `assets/learned_models/` is
+untracked in its entirety; everything below is produced by the stages above and
+gitignored:
 
 | | Examples |
 |---|---|
