@@ -14,7 +14,6 @@ env/
 .DS_Store
 .vscode/
 .idea/
-.claude/
 
 # Generated data under assets/. `assets/plots/*.png` is the ONLY tracked asset --
 # everything else is reproducible by rerunning the `main.py` stages.
