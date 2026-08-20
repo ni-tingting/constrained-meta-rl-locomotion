@@ -113,8 +113,7 @@ that Algorithm 2 starts from.
 
 > **Where the CMDP is defined.** `utils/tools.py::compute_task_reward_cost` is the single
 > place each environment's reward `r` and constraint cost `c` are specified. It is the
-> implementation of the paper's task definitions in Appendix H.2 — see
-> [Known deviations](#known-deviations-from-the-paper).
+> implementation of the paper's task definitions in Appendix H.2.
 
 ---
 
@@ -262,50 +261,6 @@ gitignored. Model checkpoints (`*.p`) are likewise not committed.
 
 The cover-set construction is seeded (`COVER_SEED = 1`), so `python main.py cover-set
 --skip-training` regenerates `assets/cover_set.json` deterministically.
-
----
-
-## Known deviations from the paper
-
-The implementation is faithful to Algorithm 1 and to the structure of Algorithm 2, but
-several constants in Algorithm 2 are hand-tuned rather than computed from the paper's
-formulas. These are recorded here rather than silently changed, because changing them
-would alter the committed results.
-
-**Faithful:**
-
-- Subroutine 3 / Algorithm 3 — greedy cover, selection rule and the `|T_t| ≤ 3δN`
-  stopping condition match exactly.
-- Algorithm 1's doubling test `sqrt(|U| ln(2N/δ) / (N − |U|)) ≤ δ` matches exactly.
-- `Û` has exactly the five fields of Eq. 2.
-- Optimistic candidate selection by `argmax u_l` (Alg. 2 line 3).
-- The mixture is sampled once per episode, per Definition 2.3.
-- Predicted mixture values `u_{l,m}`, `v_{l,m}` follow Eq. 3.
-- Constraint thresholds (Hopper 5, Half-Cheetah 10) and 20 test tasks match Figure 4.
-
-**Deviating:**
-
-| # | Paper | Code | Where |
-|---|---|---|---|
-| 1 | `R_k = Σ_t γ^t r(s_t,a_t)` (Eq. 4) — reward **discounted** | reward accumulated **undiscounted**; cost is discounted | `test_time_adaptation` |
-| 2 | Inq. 5: one bound `sqrt(2ln(4K/δ) / ((k−k_0+1)(1−γ)²)) + ε(L+1)` for reward and cost | two hand-tuned bounds, `sqrt(60000/n) + 280ε` and `sqrt(600/n) + 10ε`; `δ` therefore unused | `test_time_adaptation` |
-| 3 | Alg. 2 line 7: eliminate as soon as Inq. 5 is violated | additionally requires `n > 300` | `test_time_adaptation` |
-| 4 | Alg. 2 line 11: `k − k_0 − 1 ≥ 32ln(4K/δ) / ((1−γ)² v_{l,s}²)`, and `m ≤ m(l) = log_{C_l} ε` | `min(max(100/denom, 650), 350)`, which is **always 350**; `m < 15` hardcoded; uses `(v_{l,m} − threshold)²` instead of `v_{l,s}²` | `test_time_adaptation` |
-| 5 | Eq. 6, `m=0`: `(v_{l,s} − 2ε(L+2)) / (v_{l,s} − 2ε(L+2) + 2/(1−γ))` | `v / (v + 2)` — drops `2ε(L+2)`, uses `2` for `2/(1−γ)` | `update_mixture_weight` |
-| 6 | Eq. 6, `m≥1`: geometric ratchet in `C_l^m`, `C_l = 2/3 + (4L+9)/(3v_{l,s})` | `3α / (2 + α)` | `update_mixture_weight` |
-| 7 | `L = (1−γ)^{-1} + 2γ(1−γ)^{-2}` | never computed | `algos/our_algorithm.py` |
-| 8 | Alg. 2 line 16: return `π_out = (1/K) Σ_k π_k` | returns the surviving candidate, or `π_s` | `test_time_adaptation` |
-| 9 | Alg. 1 line 1: `N = ln²(δ)/δ²` | `ln(1/δ)/δ²` — smaller by a factor of `ln(1/δ)` | `build_cover_set` |
-| 10 | Hopper reward `−\|v − target\|` | adds MuJoCo's alive bonus and control cost | `compute_task_reward_cost` |
-| 11 | Half-Cheetah cost is the head-height constraint `h − h_0 ≤ d_τ` | uses control effort (`−reward_ctrl`); head height is never read | `compute_task_reward_cost` |
-| 12 | Half-Cheetah tasks truncated Gaussian, mean 1, on [0, 2] | sampled **uniformly** on [0, 2] | `create_sigle_envs` |
-| 13 | Hopper task distribution has **variance 0.1** | `HOPPER_TASK_VARIANCE = 0.01` (i.e. std 0.1); `main.py eval-random` defaults to variance 0.1, so the two disagree | `utils/tools.py` |
-
-Items 10–13 mean the Hopper/Half-Cheetah CMDPs realised in code differ from their
-Appendix H.2 definitions; items 1–9 mean Algorithm 2's constants are empirical rather
-than the theoretically derived ones. Neither affects the qualitative claim in Figure 4
-(our algorithm is the only method that both improves reward and stays under the
-threshold), but both matter for anyone checking the theory against the code.
 
 ---
 
