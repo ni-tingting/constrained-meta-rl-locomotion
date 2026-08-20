@@ -5,9 +5,7 @@ Safety"** — Tingting Ni, Maryam Kamgarpour (Sycamore Lab, EPFL), ICML 2026.
 A copy of the paper is included: [`Constrained Meta Reinforcement Learning with Provable Test-Time Safety.pdf`](Constrained%20Meta%20Reinforcement%20Learning%20with%20Provable%20Test-Time%20Safety.pdf).
 
 > **Scope of this repository.** This code implements the **Gym locomotion experiments of
-> Appendix H.2** (Hopper and Half-Cheetah, paper Figure 4). The gridworld experiments of
-> Section 6 (Figures 1 and 2) are **not** in this repository — see
-> [Coverage](#coverage-what-is-and-is-not-here) below.
+> Appendix H.2** — Hopper and Half-Cheetah, paper Figure 4.
 
 ## The problem
 
@@ -50,12 +48,12 @@ This is what makes exploration safe at *every* iteration rather than only in the
 
 ---
 
-## Coverage: what is and is not here
+## Experiments
 
-| Paper experiment | Figure | In this repo |
+| Paper experiment | Figure | Status |
 |---|---|---|
-| Gym Hopper, vs MAML+constraint / meta-CPO / SafeMeta / CPO | Fig. 4(b) | **Yes** — `assets/plots/Hopper.png` |
-| Gym Half-Cheetah, same four baselines | Fig. 4(a) | Partly — env supported, figure not committed |
+| Gym Hopper, vs MAML+constraint / meta-CPO / SafeMeta / CPO | Fig. 4(b) | `assets/plots/Hopper.png` |
+| Gym Half-Cheetah, same four baselines | Fig. 4(a) | environment supported, figure not committed |
 
 The four Appendix H.2 baselines map onto the code as:
 
@@ -106,9 +104,9 @@ that Algorithm 2 starts from.
 │   └── math.py                   # Gaussian log-density / entropy
 │
 ├── scripts/                      # plotting only -- four figure scripts
-└── assets/
-    ├── learned_models/<algo>/<run>/   # checkpoints, training_log.csv, test_log2.csv
-    └── plots/                    # figures (PNG tracked; result JSONs are generated)
+└── assets/                       # all generated except the PNGs -- see Generated data
+    ├── learned_models/<algo>/<run>/   # checkpoints + metric logs, per run
+    └── plots/                    # figures (committed) and result JSONs (generated)
 ```
 
 > **Where the CMDP is defined.** `utils/tools.py::compute_task_reward_cost` is the single
@@ -254,13 +252,19 @@ python scripts/plot_seeded_rewards.py --algorithms SafeMeta MAML_constraint CPOM
 
 ## Generated data
 
-`assets/plots/*.png` and the `*.csv` metric logs are tracked. **All result JSONs are
-generated, not committed** — `cover_set.json`, `cover_set_eval.json`,
-`safe_pce_eval*.json`, `shared_baseline.json` are produced by the stages above and are
-gitignored. Model checkpoints (`*.p`) are likewise not committed.
+**Only the figures (`assets/plots/*.png`) are committed.** Everything else under
+`assets/` is produced by the stages above and gitignored:
 
-The cover-set construction is seeded (`COVER_SEED = 1`), so `python main.py cover-set
---skip-training` regenerates `assets/cover_set.json` deterministically.
+| | Examples |
+|---|---|
+| Metric logs | `training_log.csv`, `test_log2.csv` |
+| Result data | `cover_set.json`, `cover_set_eval.json`, `safe_pce_eval*.json`, `shared_baseline.json` |
+| Checkpoints | `model.p`, `model_last.p`, `intermediate_model/` |
+| TensorBoard | `runs/` |
+
+Reproducing a figure therefore means rerunning the pipeline, not just the plotting
+script. The cover-set construction is seeded (`COVER_SEED = 1`), so `python main.py
+cover-set --skip-training` regenerates `assets/cover_set.json` deterministically.
 
 ---
 

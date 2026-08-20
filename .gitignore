@@ -17,10 +17,11 @@ env/
 .claude/
 
 # Generated data under assets/. Everything here is reproducible by rerunning
-# the `main.py` stages; only the CSV metric logs and the PNG figures are tracked.
+# the `main.py` stages; only the PNG figures are tracked.
 assets/**/*.p
 assets/**/*.json
 assets/*.json
+assets/**/*.csv
 assets/**/intermediate_model/
 
 # Scratch single-task cover-set files written by `main.py cpo-experts`
