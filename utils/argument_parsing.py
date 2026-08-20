@@ -1,12 +1,15 @@
 """
-Command-line flags for ``main.py``.
+Command-line flags for ``main.py train``.
 
 Some flags are algorithm-specific: the parser first peeks at ``--algo-name``,
 then registers the extra arguments that only CPO/CPOMeta (``--max-kl``,
 ``--anneal``, ...) or SafeMeta/MAML_constraint (``--meta-lambda``, ...) accept.
+This means ``--help`` shows a different flag set per algorithm, and passing a
+flag belonging to another algorithm is an error rather than a silent no-op.
 """
 
 import argparse
+import sys
 
 
 def str2bool(value):
@@ -19,10 +22,15 @@ def str2bool(value):
         return False
     raise argparse.ArgumentTypeError(f"Boolean value expected, got: {value}")
 
-def parse_all_arguments():
-        
-    parser = argparse.ArgumentParser() #description='Running {}'.format(algo_name))
-    
+def parse_all_arguments(argv=None):
+    """
+    Build and run the training parser.
+
+    ``argv`` defaults to ``sys.argv[1:]``; ``main.py`` passes the arguments left
+    over after the subcommand name.
+    """
+    parser = argparse.ArgumentParser(prog="main.py train")
+
     # Basic agruments 
     parser.add_argument('--algo-name', default="SafeMeta", metavar='G', #MAML_constraint, SafeMeta, CPOMeta, CPO
                        help='algorithm name')
@@ -79,8 +87,12 @@ def parse_all_arguments():
     parser.add_argument('--save-intermediate-model', type=int, default=100, metavar='N',
                         help="intermediate model saving interval (default: 0, means don't save)")
        
-    preliminary_args, _ = parser.parse_known_args()
-    print(preliminary_args.algo_name)
+    # Peek at --algo-name so the algorithm-specific flags below can be registered.
+    # Help flags are stripped for the peek, otherwise argparse would print the
+    # partial help and exit before those flags exist.
+    peek_argv = [arg for arg in (argv if argv is not None else sys.argv[1:])
+                 if arg not in ('-h', '--help')]
+    preliminary_args, _ = parser.parse_known_args(peek_argv)
     parser.add_argument('--max-constraint', type=float, default=5, metavar='G',  #halfcheetah: 10, swimmer: 5, humanoid: 20, hopper: 5
                         help='max constraint value (default: 1e-2)')
     parser.add_argument('--use-cover-set-tasks', type=str2bool, nargs='?', const=True, default=False,
@@ -112,9 +124,5 @@ def parse_all_arguments():
                         help='damping (default: 1e-2)')
         parser.add_argument('--meta-lambda', type=float, default=1.0, metavar='G', #halfcheetah: 1.0, swimmer: 0.2, humanoid: 5.0, hopper: 1.0
                         help='meta-lambda (default: 0.5)')
-        
-    
-    return parser.parse_args()
 
-if __name__ == "__main__":
-    print("Parsing arguments. . .")
+    return parser.parse_args(argv)

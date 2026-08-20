@@ -31,7 +31,7 @@ fi
 for algo in "${ALGORITHMS[@]}"; do
   for seed in "${SEEDS[@]}"; do
     echo "Running $algo seed=$seed"
-    "$PYTHON_BIN" "$ROOT_DIR/main.py" \
+    "$PYTHON_BIN" "$ROOT_DIR/main.py" train \
       --algo-name "$algo" \
       --seed "$seed" \
       "${COMMON_ARGS[@]}" \

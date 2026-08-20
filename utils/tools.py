@@ -111,7 +111,6 @@ def create_sigle_envs(args):
 
 def create_env_parameter_list(args):
     env_parameter_list=[]
-    print(args.env_name)
     if args.env_name == "HalfCheetah":
         for i in range(0, args.env_num):
             env_parameter_list.append(random.uniform(0.0, 2.0))

@@ -18,9 +18,9 @@ if [[ -n "${EXTRA_ARGS_STR:-}" ]]; then
 fi
 
 for seed in "${SEEDS[@]}"; do
-  echo "Running run_all_and_plot for seed=$seed"
+  echo "Running comparison for seed=$seed"
   cmd=(
-    "$PYTHON_BIN" "$ROOT_DIR/run_all_and_plot.py"
+    "$PYTHON_BIN" "$ROOT_DIR/main.py" compare
     --env-name "$ENV_NAME"
     --seed "$seed"
     --skip-baseline
