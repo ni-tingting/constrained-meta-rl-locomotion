@@ -1,0 +1,19 @@
+# Verified against the working .venv (Python 3.11.2).
+# Install with:  pip install -r requirements.txt
+
+# Deep learning
+torch==2.11.0
+numpy==2.4.3
+scipy==1.17.1
+
+# Environments (MuJoCo Hopper / HalfCheetah / Swimmer / Humanoid)
+gymnasium==1.2.3
+mujoco==3.6.0
+
+# Constrained policy optimisation (CPO / CPOMeta projection steps)
+cvxpy==1.8.2
+cvxpylayers==1.0.4
+
+# Logging and plotting
+tensorboard==2.20.0
+matplotlib==3.10.8

@@ -1,0 +1,7 @@
+{
+  "baseline_reward": 110.83633228558529,
+  "baseline_cost": 10.526637881465277,
+  "num_tasks": 4,
+  "seed": 0,
+  "env_name": "Hopper"
+}

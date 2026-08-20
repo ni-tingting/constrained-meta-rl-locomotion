@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS / editor / local tooling
+.DS_Store
+.vscode/
+.idea/
+.claude/settings.local.json
+
+# Trained model checkpoints (pickles) -- regenerate with main.py / run_cpo_cover_set.py.
+# Metric logs (*.csv, *.json) and figures (*.png) under assets/ ARE tracked.
+assets/**/*.p
+assets/**/intermediate_model/
+
+# Scratch single-task cover-set files written by run_cpo_cover_set.py
+assets/**/tmp_cover_sets/
+
+# TensorBoard event files
+assets/**/runs/
+events.out.tfevents.*
