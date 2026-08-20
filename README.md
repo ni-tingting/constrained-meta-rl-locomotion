@@ -54,7 +54,6 @@ This is what makes exploration safe at *every* iteration rather than only in the
 
 | Paper experiment | Figure | In this repo |
 |---|---|---|
-| 7×7 gridworld, vs Safe Meta-RL / DOPE+ / LB-SGD | Fig. 1, 2 | **No** — not implemented |
 | Gym Hopper, vs MAML+constraint / meta-CPO / SafeMeta / CPO | Fig. 4(b) | **Yes** — `assets/plots/Hopper.png` |
 | Gym Half-Cheetah, same four baselines | Fig. 4(a) | Partly — env supported, figure not committed |
 
@@ -106,7 +105,7 @@ that Algorithm 2 starts from.
 │   ├── torch.py                  # flatten/restore params & grads
 │   └── math.py                   # Gaussian log-density / entropy
 │
-├── scripts/                      # multi-seed launchers + plotting (see scripts/README.md)
+├── scripts/                      # plotting only -- four figure scripts
 └── assets/
     ├── learned_models/<algo>/<run>/   # checkpoints, training_log.csv, test_log2.csv
     └── plots/                    # figures (PNG tracked; result JSONs are generated)
@@ -183,8 +182,8 @@ python main.py adapt --seed 0 --save-path assets/plots/safe_pce_eval.json
 **The four baselines, and the figure:**
 
 ```bash
-./scripts/run_10_seeds.sh          # meta-train the baselines
-python main.py compare             # adapt each from the shared pi_s, then plot
+python main.py train --algo-name SafeMeta --is-meta-test False   # and the other three
+python main.py compare                                            # adapt each, then plot
 ```
 
 `assets/plots/Hopper.png` is the committed result. `--max-constraint 5` for Hopper,
@@ -209,14 +208,48 @@ passing another algorithm's flag is an error rather than a silent no-op.
 
 ### Multi-seed runs
 
+Test-time adaptation over seeds — the output filename carries the seed, so nothing
+collides:
+
 ```bash
-./scripts/run_10_seeds.sh                    # baselines × 10 seeds
-./scripts/run_safe_pce_20_seeds.sh           # `main.py adapt` × 20 seeds
-python scripts/plot_safe_pce_seeds.py        # mean / p10-p90 bands
-python scripts/plot_seeded_rewards.py        # mean ± std training curves
+for seed in $(seq 0 19); do
+  python main.py adapt --seed "$seed" --save-path assets/plots/safe_pce_eval_seed$seed.json
+done
 ```
 
-See [`scripts/README.md`](scripts/README.md).
+Meta-training over seeds needs one extra step. Run directories are named by *date*
+(`assets/learned_models/SafeMeta/<date>-exp-SafeMeta-Hopper`), so successive seeds on the
+same day land in the same folder and overwrite each other. Tag each run with its seed:
+
+```bash
+for algo in SafeMeta MAML_constraint CPOMeta CPO; do
+  for seed in $(seq 0 9); do
+    python main.py train --algo-name "$algo" --seed "$seed" --is-meta-test False
+    latest=$(ls -td assets/learned_models/$algo/* | head -1)
+    [ "${latest%-seed$seed}" = "$latest" ] && mv "$latest" "$latest-seed$seed"
+  done
+done
+```
+
+The `-seed<N>` suffix is not cosmetic: `plot_seeded_rewards.py` and
+`plot_safe_pce_with_baselines.py` default to `--require-seed-tag` and ignore
+directories not named this way.
+
+### Plotting
+
+Run from the repository root — these resolve `assets/` relative to the working directory.
+
+| Script | Reads | Produces |
+|---|---|---|
+| `scripts/plot_test_metrics.py` | `test_log2.csv`, `shared_baseline.json` | per-algorithm test reward/cost (this is what `main.py compare` calls) |
+| `scripts/plot_seeded_rewards.py` | `training_log.csv` per run | mean ± std meta-training curves |
+| `scripts/plot_safe_pce_seeds.py` | `safe_pce_eval_seed*.json` | reward/cost with mean and p10–p90 bands |
+| `scripts/plot_safe_pce_with_baselines.py` | the above + `test_log2.csv` | adaptation curves against the baselines |
+
+```bash
+python scripts/plot_safe_pce_seeds.py --input-dir assets/plots
+python scripts/plot_seeded_rewards.py --algorithms SafeMeta MAML_constraint CPOMeta CPO
+```
 
 ---
 
