@@ -14,7 +14,7 @@ env/
 .DS_Store
 .vscode/
 .idea/
-.claude/settings.local.json
+.claude/
 
 # Trained model checkpoints (pickles) -- regenerate with main.py / run_cpo_cover_set.py.
 # Metric logs (*.csv, *.json) and figures (*.png) under assets/ ARE tracked.
